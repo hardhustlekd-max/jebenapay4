@@ -4,7 +4,7 @@
     "releaseDate": "2026-07-22",
     "title": "v1.0.2 — Live Reactive State Sync, Status Bar & Version Display",
     "apkName": "jebena pay v1.0.2.apk",
-    "commitHash": "head",
+    "commitHash": "b995fcc",
     "status": "Production",
     "changes": [
       "Removed full screen mode and restored native system status bar visibility with matching dark theme color",
