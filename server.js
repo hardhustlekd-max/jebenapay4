@@ -24,7 +24,108 @@ const MIME_TYPES = {
   '.apk': 'application/vnd.android.package-archive'
 };
 
+// Real-time Transaction Store & SSE Live Clients
+let transactions = [
+  {
+    id: 'TXN-1001',
+    sender: 'Telebirr',
+    amount: 1250.00,
+    type: 'CREDIT',
+    reference: 'TB839201948',
+    merchantOrParty: 'Abebe Kebede',
+    category: 'Mobile Wallet',
+    timestamp: Date.now() - 3600000,
+    rawSms: 'You have received ETB 1,250.00 from Abebe Kebede. Ref: TB839201948.'
+  },
+  {
+    id: 'TXN-1000',
+    sender: 'CBE',
+    amount: 320.00,
+    type: 'DEBIT',
+    reference: 'CBE99401294',
+    merchantOrParty: 'Kaldi\'s Coffee',
+    category: 'Food & Beverage',
+    timestamp: Date.now() - 86400000,
+    rawSms: 'Your account 1000****1234 has been debited with ETB 320.00 at Kaldi\'s Coffee. Ref: CBE99401294.'
+  }
+];
+
+let sseClients = [];
+
+function broadcastTransaction(transaction) {
+  const data = `data: ${JSON.stringify(transaction)}\n\n`;
+  sseClients.forEach(res => {
+    try {
+      res.write(data);
+    } catch (err) {
+      // client disconnected
+    }
+  });
+}
+
 const server = http.createServer((req, res) => {
+  // Real-time SSE Stream Endpoint for open UI dashboard updates
+  if (req.method === 'GET' && req.url === '/api/transactions/stream') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.write('retry: 3000\n\n');
+    sseClients.push(res);
+
+    req.on('close', () => {
+      sseClients = sseClients.filter(c => c !== res);
+    });
+    return;
+  }
+
+  // GET all transactions
+  if (req.method === 'GET' && req.url === '/api/transactions') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ transactions }));
+    return;
+  }
+
+  // POST capture new SMS transaction (dynamically updates all open UI dashboards)
+  if (req.method === 'POST' && req.url === '/api/transactions') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const sender = payload.sender || 'Telebirr';
+        const bodyText = payload.rawSms || payload.body || '';
+        const amount = parseFloat(payload.amount) || 250.00;
+        const type = payload.type || (bodyText.toLowerCase().includes('received') || bodyText.toLowerCase().includes('credit') ? 'CREDIT' : 'DEBIT');
+        const reference = payload.reference || `TXN-${Math.floor(10000000 + Math.random() * 90000000)}`;
+        const merchantOrParty = payload.merchantOrParty || sender;
+
+        const newTx = {
+          id: `TXN-${Date.now().toString().slice(-6)}`,
+          sender,
+          amount,
+          type,
+          reference,
+          merchantOrParty,
+          category: payload.category || 'General',
+          timestamp: Date.now(),
+          rawSms: bodyText || `Transaction of ETB ${amount} via ${sender}`
+        };
+
+        transactions.unshift(newTx);
+        broadcastTransaction(newTx);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, transaction: newTx }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
   // Backblaze secure download proxy/redirect API for private buckets
   if (req.method === 'GET' && req.url.startsWith('/api/download-apk')) {
     const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
