@@ -6,7 +6,7 @@ import java.util.regex.Pattern
 
 object SmsParser {
 
-    fun parseSms(sender: String, body: String): Transaction? {
+    fun parseSms(sender: String, body: String, timestamp: Long = System.currentTimeMillis()): Transaction? {
         val cleanBody = body.trim()
         val lowerBody = cleanBody.lowercase()
 
@@ -67,7 +67,7 @@ object SmsParser {
             reference = reference,
             merchantOrParty = party.ifBlank { sender },
             rawSms = body,
-            timestamp = System.currentTimeMillis(),
+            timestamp = timestamp,
             category = category
         )
     }

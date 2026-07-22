@@ -23,10 +23,11 @@ class SmsReceiver : BroadcastReceiver() {
                     for (sms in messages) {
                         val sender = sms.originatingAddress ?: "Unknown Sender"
                         val body = sms.messageBody ?: ""
+                        val smsTime = sms.timestampMillis
 
-                        Log.d("SmsReceiver", "Received SMS from $sender: $body")
+                        Log.d("SmsReceiver", "Received SMS from $sender at $smsTime: $body")
 
-                        val transaction = SmsParser.parseSms(sender, body)
+                        val transaction = SmsParser.parseSms(sender, body, timestamp = smsTime)
                         if (transaction != null) {
                             val repo = TransactionRepository.getInstance(context)
                             repo.addTransaction(transaction)

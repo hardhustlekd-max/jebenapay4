@@ -60,17 +60,19 @@ class SmsObserver(
                 val idCol = c.getColumnIndexOrThrow("_id")
                 val addressCol = c.getColumnIndexOrThrow("address")
                 val bodyCol = c.getColumnIndexOrThrow("body")
+                val dateCol = c.getColumnIndexOrThrow("date")
 
                 while (c.moveToNext()) {
                     val id = c.getLong(idCol)
                     val address = c.getString(addressCol) ?: "SMS"
                     val body = c.getString(bodyCol) ?: ""
+                    val smsDate = c.getLong(dateCol) // Time the SMS was received on the device
 
                     if (id > lastHandledSmsId) {
                         lastHandledSmsId = id
-                        Log.d("SmsObserver", "Captured live SMS (ID $id) from $address: $body")
+                        Log.d("SmsObserver", "Captured live SMS (ID $id, date $smsDate) from $address: $body")
 
-                        val transaction = SmsParser.parseSms(address, body)
+                        val transaction = SmsParser.parseSms(address, body, timestamp = smsDate)
                         if (transaction != null) {
                             val repo = TransactionRepository.getInstance(context)
                             CoroutineScope(Dispatchers.IO).launch {
