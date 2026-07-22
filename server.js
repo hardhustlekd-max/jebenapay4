@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +23,35 @@ try {
   // default 1.0.0
 }
 
+function getReleases() {
+  const relPath = path.join(__dirname, 'releases.json');
+  if (fs.existsSync(relPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(relPath, 'utf8'));
+    } catch (e) {
+      return [];
+    }
+  }
+  return [];
+}
+
+function saveReleases(releases) {
+  const relPath = path.join(__dirname, 'releases.json');
+  fs.writeFileSync(relPath, JSON.stringify(releases, null, 2), 'utf8');
+}
+
+function getGitHistory() {
+  try {
+    const raw = execSync('git log -n 15 --pretty=format:\'%h|%an|%ad|%s\'', { encoding: 'utf8' });
+    return raw.trim().split('\n').map(line => {
+      const [hash, author, date, message] = line.split('|');
+      return { hash, author, date, message };
+    });
+  } catch (e) {
+    return [];
+  }
+}
+
 const APK_DISPLAY_NAME = `jebena pay v${APP_VERSION}.apk`;
 
 const MIME_TYPES = {
@@ -39,6 +69,78 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
+  // GET Version & Release History API
+  if (req.method === 'GET' && req.url === '/api/version-history') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      currentVersion: APP_VERSION,
+      gitHistory: getGitHistory(),
+      releases: getReleases()
+    }));
+    return;
+  }
+
+  // POST Publish New Version Release API
+  if (req.method === 'POST' && req.url === '/api/releases') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const newVer = (payload.version || '').replace(/^v/, '').trim();
+        if (!newVer) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Valid version number required (e.g. 1.0.1)' }));
+          return;
+        }
+
+        // Update package.json version
+        const pkgPath = path.join(__dirname, 'package.json');
+        if (fs.existsSync(pkgPath)) {
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+          pkg.version = newVer;
+          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2), 'utf8');
+        }
+        APP_VERSION = newVer;
+
+        const gitHistory = getGitHistory();
+        const latestCommitHash = gitHistory.length > 0 ? gitHistory[0].hash : 'head';
+
+        const releases = getReleases();
+        const changesArr = Array.isArray(payload.changes) 
+          ? payload.changes 
+          : (payload.changes || '').split('\n').map(s => s.trim()).filter(Boolean);
+
+        const newRelease = {
+          version: newVer,
+          releaseDate: new Date().toISOString().split('T')[0],
+          title: payload.title || `v${newVer} Release`,
+          apkName: `jebena pay v${newVer}.apk`,
+          commitHash: latestCommitHash,
+          status: payload.status || 'Production',
+          changes: changesArr.length > 0 ? changesArr : ['General bug fixes and performance improvements']
+        };
+
+        // Remove existing release with same version if exists, then unshift
+        const filtered = releases.filter(r => r.version !== newVer);
+        filtered.unshift(newRelease);
+        saveReleases(filtered);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          currentVersion: APP_VERSION,
+          releases: filtered,
+          gitHistory
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
   // Backblaze secure download proxy/redirect API for private buckets
   if (req.method === 'GET' && req.url.startsWith('/api/download-apk')) {
     const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);

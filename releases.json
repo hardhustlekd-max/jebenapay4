@@ -1,0 +1,17 @@
+[
+  {
+    "version": "1.0.0",
+    "releaseDate": "2026-07-22",
+    "title": "v1.0.0 — Official Production Release",
+    "apkName": "jebena pay v1.0.0.apk",
+    "commitHash": "1f46e15",
+    "status": "Production",
+    "changes": [
+      "Instant real-time app UI updates upon receiving SMS without restarting the app",
+      "Multi-instance database invalidation and eager StateFlow stream collection",
+      "Backblaze B2 secure versioned APK storage ('jebena pay v1.0.0.apk')",
+      "SMS parsing engine for Telebirr, CBE Birr, Dashen Amole, and Bank of Abyssinia",
+      "Offline-first SQLite database with automated transaction classification"
+    ]
+  }
+]

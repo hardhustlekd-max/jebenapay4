@@ -137,6 +137,102 @@
 
 
 
+    <!-- Version Control & Release History Section -->
+    <div class="w-full bg-[#111115] border border-slate-850 rounded-2xl p-6 space-y-6 text-left shadow-2xl" id="version-control-section">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Version Control Active</span>
+            <span id="vc-active-version-badge" class="text-xs font-mono font-bold text-white bg-slate-900 border border-slate-800 px-2 py-0.5 rounded">v1.0.0</span>
+          </div>
+          <h3 class="text-base font-extrabold text-white mt-1">Release History & Change Tracker</h3>
+          <p class="text-xs text-slate-400">Track application releases, commit logs, and Backblaze versioned builds.</p>
+        </div>
+
+        <!-- VC Quick Stats -->
+        <div class="flex items-center gap-2">
+          <div class="bg-slate-950 border border-slate-850 px-3 py-1.5 rounded-xl text-center">
+            <span class="block text-[9px] font-mono uppercase text-slate-500">Active Commit</span>
+            <span id="vc-head-commit" class="text-xs font-mono font-bold text-emerald-400">#1f46e15</span>
+          </div>
+          <div class="bg-slate-950 border border-slate-850 px-3 py-1.5 rounded-xl text-center">
+            <span class="block text-[9px] font-mono uppercase text-slate-500">Releases</span>
+            <span id="vc-total-releases" class="text-xs font-mono font-bold text-white">1</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="flex border-b border-slate-800 gap-2">
+        <button id="vc-tab-releases" onclick="switchVcTab('releases')" class="px-4 py-2 text-xs font-bold text-emerald-400 border-b-2 border-emerald-400 transition-all flex items-center gap-1.5">
+          <span>📦</span> Release History
+        </button>
+        <button id="vc-tab-commits" onclick="switchVcTab('commits')" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5">
+          <span>📜</span> Git Commit Logs
+        </button>
+        <button id="vc-tab-publish" onclick="switchVcTab('publish')" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5">
+          <span>🚀</span> Publish Release
+        </button>
+      </div>
+
+      <!-- Tab Content 1: Release History -->
+      <div id="vc-content-releases" class="space-y-4">
+        <div id="vc-releases-list" class="space-y-4">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Tab Content 2: Git Commit Logs -->
+      <div id="vc-content-commits" class="hidden space-y-3">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-mono px-1">
+          <span>Repository Commits (Latest 15)</span>
+          <span class="text-emerald-400">git branch: main</span>
+        </div>
+        <div id="vc-commits-list" class="space-y-2 max-h-80 overflow-y-auto pr-1">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Tab Content 3: Publish New Release -->
+      <div id="vc-content-publish" class="hidden space-y-4 bg-slate-950/80 border border-slate-800/80 p-5 rounded-xl">
+        <div class="space-y-1">
+          <h4 class="text-xs font-bold text-white uppercase tracking-wider">Publish New Release & Version</h4>
+          <p class="text-[11px] text-slate-400">Updates package version, logs release notes, and uploads versioned build to Backblaze B2.</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Version Number (e.g. 1.0.1)</label>
+            <input type="text" id="pub-version" value="1.0.1" placeholder="1.0.1" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono">
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Release Status</label>
+            <select id="pub-status" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+              <option value="Production">Production</option>
+              <option value="Beta">Beta</option>
+              <option value="Alpha">Alpha</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-300 mb-1">Release Title</label>
+          <input type="text" id="pub-title" placeholder="v1.0.1 — Bug Fixes & Instant Receiver Improvements" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-300 mb-1">Changelog Items (One per line)</label>
+          <textarea id="pub-changes" rows="3" placeholder="Fixed instant real-time SMS UI update&#10;Updated Backblaze APK upload naming format" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"></textarea>
+        </div>
+
+        <button id="pub-btn-submit" onclick="publishNewRelease()" class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/20 active:scale-[0.99] flex items-center justify-center gap-2">
+          <span>🚀</span> Publish Release & Sync Version Control
+        </button>
+
+        <div id="pub-status-msg" class="hidden text-xs p-3 rounded-lg bg-slate-900 border border-slate-800 font-mono"></div>
+      </div>
+    </div>
+
     <!-- Core Features Bento-Grid -->
     <div class="w-full space-y-6 pt-10" id="features-section">
       <h3 class="text-xs font-bold text-emerald-500 uppercase tracking-widest text-center">Core Capabilities</h3>
@@ -350,6 +446,193 @@
         copyBtn.classList.remove('bg-emerald-500/20', 'text-emerald-400');
       }, 2000);
     }
+
+    // --- VERSION CONTROL & RELEASE TRACKING ENGINE ---
+    window.switchVcTab = function(tab) {
+      const tabs = ['releases', 'commits', 'publish'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`vc-tab-${t}`);
+        const content = document.getElementById(`vc-content-${t}`);
+        if (t === tab) {
+          btn.className = 'px-4 py-2 text-xs font-bold text-emerald-400 border-b-2 border-emerald-400 transition-all flex items-center gap-1.5';
+          content.classList.remove('hidden');
+        } else {
+          btn.className = 'px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5';
+          content.classList.add('hidden');
+        }
+      });
+    };
+
+    async function fetchVersionHistory() {
+      try {
+        const res = await fetch('/api/version-history');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Update badges
+        const badge = document.getElementById('vc-active-version-badge');
+        if (badge) badge.innerText = `v${data.currentVersion}`;
+
+        const headCommit = document.getElementById('vc-head-commit');
+        if (headCommit && data.gitHistory && data.gitHistory.length > 0) {
+          headCommit.innerText = `#${data.gitHistory[0].hash}`;
+        }
+
+        const totalRel = document.getElementById('vc-total-releases');
+        if (totalRel) totalRel.innerText = (data.releases || []).length;
+
+        renderReleases(data.releases || [], data.currentVersion);
+        renderCommits(data.gitHistory || []);
+      } catch (err) {
+        console.error('Error fetching version history:', err);
+      }
+    }
+
+    function renderReleases(releases, currentVer) {
+      const container = document.getElementById('vc-releases-list');
+      if (!container) return;
+
+      if (releases.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-6 text-slate-500 text-xs font-mono">
+            No published releases logged yet.
+          </div>
+        `;
+        return;
+      }
+
+      const keyId = localStorage.getItem('b2_key_id') || 'affc1d33accc';
+      const appKey = localStorage.getItem('b2_app_key') || '0050538f19f6604d5c849f8562d20e12d2923de30a';
+      const bucket = localStorage.getItem('b2_bucket_name') || 'jebenapay-build';
+
+      container.innerHTML = releases.map(r => {
+        const isCurrent = r.version === currentVer;
+        const changesList = (r.changes || []).map(c => `<li class="flex items-start gap-1.5"><span class="text-emerald-400 shrink-0">•</span><span>${c}</span></li>`).join('');
+        
+        const apkFileName = r.apkName || `jebena pay v${r.version}.apk`;
+        const downloadUrl = `/api/download-apk?keyId=${encodeURIComponent(keyId)}&applicationKey=${encodeURIComponent(appKey)}&bucketName=${encodeURIComponent(bucket)}&fileName=${encodeURIComponent(apkFileName)}`;
+
+        return `
+          <div class="bg-slate-950/90 border ${isCurrent ? 'border-emerald-500/40 shadow-lg shadow-emerald-500/5' : 'border-slate-800/80'} rounded-xl p-4 space-y-3 transition-all">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-900 pb-3">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-extrabold text-white">v${r.version}</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded ${r.status === 'Production' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300'} font-semibold">${r.status}</span>
+                ${isCurrent ? '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500 text-black font-extrabold">Active</span>' : ''}
+              </div>
+              <div class="text-[11px] font-mono text-slate-400 flex items-center gap-2">
+                <span>📅 ${r.releaseDate}</span>
+                <span>•</span>
+                <span class="text-emerald-400">Commit: #${r.commitHash}</span>
+              </div>
+            </div>
+
+            <div class="space-y-1.5">
+              <h5 class="text-xs font-bold text-slate-200">${r.title}</h5>
+              <ul class="text-xs text-slate-400 space-y-1 leading-relaxed">
+                ${changesList}
+              </ul>
+            </div>
+
+            <div class="pt-2 flex items-center justify-between border-t border-slate-900">
+              <span class="text-[10px] font-mono text-slate-500">File: ${apkFileName}</span>
+              <a href="${downloadUrl}" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 hover:text-emerald-300 border border-slate-800 font-mono text-[11px] font-bold rounded-lg transition-all flex items-center gap-1">
+                <span>⬇️</span> Download v${r.version} APK
+              </a>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderCommits(commits) {
+      const container = document.getElementById('vc-commits-list');
+      if (!container) return;
+
+      if (commits.length === 0) {
+        container.innerHTML = `<div class="text-center py-6 text-slate-500 text-xs font-mono">No git commits found.</div>`;
+        return;
+      }
+
+      container.innerHTML = commits.map(c => {
+        return `
+          <div class="bg-slate-950/80 border border-slate-850 hover:border-slate-800 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-all">
+            <div class="space-y-0.5">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-200">${c.message}</span>
+              </div>
+              <p class="text-[10px] font-mono text-slate-500">Author: ${c.author} • ${c.date}</p>
+            </div>
+            <span class="text-[10px] font-mono px-2 py-1 rounded bg-slate-900 border border-slate-800 text-emerald-400 shrink-0">#${c.hash}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.publishNewRelease = async function() {
+      const version = document.getElementById('pub-version').value.trim();
+      const status = document.getElementById('pub-status').value;
+      const title = document.getElementById('pub-title').value.trim();
+      const changesText = document.getElementById('pub-changes').value.trim();
+      const btn = document.getElementById('pub-btn-submit');
+      const msg = document.getElementById('pub-status-msg');
+
+      if (!version) {
+        alert('Please enter a release version (e.g. 1.0.1)');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = 'Publishing Release...';
+      msg.classList.remove('hidden');
+      msg.className = 'text-xs p-3 rounded-lg bg-slate-900 border border-slate-800 font-mono text-slate-300';
+      msg.innerText = 'Updating version metadata and publishing release...';
+
+      try {
+        const response = await fetch('/api/releases', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ version, status, title, changes: changesText })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Failed to publish release');
+        }
+
+        msg.className = 'text-xs p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/30 font-mono text-emerald-300';
+        msg.innerText = `✓ Successfully published release v${data.currentVersion}!`;
+
+        // Also trigger B2 build upload under new version
+        const keyId = localStorage.getItem('b2_key_id') || 'affc1d33accc';
+        const appKey = localStorage.getItem('b2_app_key') || '0050538f19f6604d5c849f8562d20e12d2923de30a';
+        const bucket = localStorage.getItem('b2_bucket_name') || 'jebenapay-build';
+
+        fetch('/api/backblaze-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keyId, applicationKey: appKey, bucketName: bucket, version: data.currentVersion })
+        }).catch(err => console.error('Background B2 sync error:', err));
+
+        // Refresh view
+        fetchVersionHistory();
+        setTimeout(() => {
+          switchVcTab('releases');
+          msg.classList.add('hidden');
+        }, 1500);
+
+      } catch (err) {
+        msg.className = 'text-xs p-3 rounded-lg bg-rose-950/40 border border-rose-500/30 font-mono text-rose-300';
+        msg.innerText = `✗ Publish Error: ${err.message}`;
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '🚀 Publish Release & Sync Version Control';
+      }
+    };
+
+    // Load Version Control state on launch
+    fetchVersionHistory();
+
 
 
   </script>
