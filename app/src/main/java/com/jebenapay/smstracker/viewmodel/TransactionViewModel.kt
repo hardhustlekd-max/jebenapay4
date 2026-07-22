@@ -20,34 +20,38 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
     val transactions: StateFlow<List<Transaction>> = repository.getAllTransactions()
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = SharingStarted.Eagerly,
             initialValue = emptyList()
         )
 
     val totalIncome: StateFlow<Double> = transactions.map { list ->
         list.filter { it.type == TransactionType.CREDIT }.sumOf { it.amount }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
 
     val totalExpense: StateFlow<Double> = transactions.map { list ->
         list.filter { it.type == TransactionType.DEBIT }.sumOf { it.amount }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
 
     val netBalance: StateFlow<Double> = transactions.map { list ->
         val income = list.filter { it.type == TransactionType.CREDIT }.sumOf { it.amount }
         val expense = list.filter { it.type == TransactionType.DEBIT }.sumOf { it.amount }
         income - expense
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
 
     private val _latestCapturedTransaction = MutableStateFlow<Transaction?>(null)
     val latestCapturedTransaction: StateFlow<Transaction?> = _latestCapturedTransaction.asStateFlow()
 
     init {
-        // Collect live event stream to pop a dynamic toast or banner when captured
+        // Collect live event stream to pop a dynamic banner when captured
         viewModelScope.launch {
             repository.liveTransactionEvent.collect { newTx ->
                 _latestCapturedTransaction.value = newTx
             }
         }
+    }
+
+    fun onTransactionCapturedLocally(transaction: Transaction) {
+        _latestCapturedTransaction.value = transaction
     }
 
     fun dismissLiveBanner() {

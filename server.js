@@ -10,6 +10,20 @@ const __dirname = path.dirname(__filename);
 const PORT = 3000;
 const PUBLIC_DIR = path.join(__dirname, 'www');
 
+// Read app version from package.json
+let APP_VERSION = '1.0.0';
+try {
+  const pkgPath = path.join(__dirname, 'package.json');
+  if (fs.existsSync(pkgPath)) {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    if (pkg.version) APP_VERSION = pkg.version;
+  }
+} catch (e) {
+  // default 1.0.0
+}
+
+const APK_DISPLAY_NAME = `jebena pay v${APP_VERSION}.apk`;
+
 const MIME_TYPES = {
   '.html': 'text/html',
   '.css': 'text/css',
@@ -24,115 +38,14 @@ const MIME_TYPES = {
   '.apk': 'application/vnd.android.package-archive'
 };
 
-// Real-time Transaction Store & SSE Live Clients
-let transactions = [
-  {
-    id: 'TXN-1001',
-    sender: 'Telebirr',
-    amount: 1250.00,
-    type: 'CREDIT',
-    reference: 'TB839201948',
-    merchantOrParty: 'Abebe Kebede',
-    category: 'Mobile Wallet',
-    timestamp: Date.now() - 3600000,
-    rawSms: 'You have received ETB 1,250.00 from Abebe Kebede. Ref: TB839201948.'
-  },
-  {
-    id: 'TXN-1000',
-    sender: 'CBE',
-    amount: 320.00,
-    type: 'DEBIT',
-    reference: 'CBE99401294',
-    merchantOrParty: 'Kaldi\'s Coffee',
-    category: 'Food & Beverage',
-    timestamp: Date.now() - 86400000,
-    rawSms: 'Your account 1000****1234 has been debited with ETB 320.00 at Kaldi\'s Coffee. Ref: CBE99401294.'
-  }
-];
-
-let sseClients = [];
-
-function broadcastTransaction(transaction) {
-  const data = `data: ${JSON.stringify(transaction)}\n\n`;
-  sseClients.forEach(res => {
-    try {
-      res.write(data);
-    } catch (err) {
-      // client disconnected
-    }
-  });
-}
-
 const server = http.createServer((req, res) => {
-  // Real-time SSE Stream Endpoint for open UI dashboard updates
-  if (req.method === 'GET' && req.url === '/api/transactions/stream') {
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*'
-    });
-    res.write('retry: 3000\n\n');
-    sseClients.push(res);
-
-    req.on('close', () => {
-      sseClients = sseClients.filter(c => c !== res);
-    });
-    return;
-  }
-
-  // GET all transactions
-  if (req.method === 'GET' && req.url === '/api/transactions') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ transactions }));
-    return;
-  }
-
-  // POST capture new SMS transaction (dynamically updates all open UI dashboards)
-  if (req.method === 'POST' && req.url === '/api/transactions') {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try {
-        const payload = JSON.parse(body || '{}');
-        const sender = payload.sender || 'Telebirr';
-        const bodyText = payload.rawSms || payload.body || '';
-        const amount = parseFloat(payload.amount) || 250.00;
-        const type = payload.type || (bodyText.toLowerCase().includes('received') || bodyText.toLowerCase().includes('credit') ? 'CREDIT' : 'DEBIT');
-        const reference = payload.reference || `TXN-${Math.floor(10000000 + Math.random() * 90000000)}`;
-        const merchantOrParty = payload.merchantOrParty || sender;
-
-        const newTx = {
-          id: `TXN-${Date.now().toString().slice(-6)}`,
-          sender,
-          amount,
-          type,
-          reference,
-          merchantOrParty,
-          category: payload.category || 'General',
-          timestamp: Date.now(),
-          rawSms: bodyText || `Transaction of ETB ${amount} via ${sender}`
-        };
-
-        transactions.unshift(newTx);
-        broadcastTransaction(newTx);
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, transaction: newTx }));
-      } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-    });
-    return;
-  }
   // Backblaze secure download proxy/redirect API for private buckets
   if (req.method === 'GET' && req.url.startsWith('/api/download-apk')) {
     const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const keyId = urlObj.searchParams.get('keyId') || 'affc1d33accc';
     const applicationKey = urlObj.searchParams.get('applicationKey') || '0050538f19f6604d5c849f8562d20e12d2923de30a';
     const bucketNameParam = urlObj.searchParams.get('bucketName') || 'jebenapay-build';
-    const fileName = 'jebena-pay.apk';
+    let targetFileName = urlObj.searchParams.get('fileName') || APK_DISPLAY_NAME;
 
     (async () => {
       try {
@@ -174,7 +87,25 @@ const server = http.createServer((req, res) => {
         const bucketId = foundBucket.bucketId;
         const bucketName = foundBucket.bucketName;
 
-        // Step 3: Call b2_get_download_authorization
+        // Step 3: Check for exact file or find latest jebena pay apk file in bucket
+        try {
+          const fileListRes = await fetch(`${apiUrl}/b2api/v2/b2_list_file_names`, {
+            method: 'POST',
+            headers: { 'Authorization': accountAuthToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bucketId, maxFileCount: 10, prefix: 'jebena' })
+          });
+          if (fileListRes.ok) {
+            const fileListData = await fileListRes.json();
+            if (fileListData.files && fileListData.files.length > 0) {
+              // Pick the latest file
+              targetFileName = fileListData.files[0].fileName;
+            }
+          }
+        } catch (e) {
+          // fallback to targetFileName
+        }
+
+        // Step 4: Call b2_get_download_authorization
         const getAuthRes = await fetch(`${apiUrl}/b2api/v2/b2_get_download_authorization`, {
           method: 'POST',
           headers: {
@@ -183,7 +114,7 @@ const server = http.createServer((req, res) => {
           },
           body: JSON.stringify({
             bucketId,
-            fileNamePrefix: fileName,
+            fileNamePrefix: targetFileName,
             validDurationInSeconds: 3600 // 1 hour token
           })
         });
@@ -196,8 +127,8 @@ const server = http.createServer((req, res) => {
         const getAuthData = await getAuthRes.json();
         const downloadAuthToken = getAuthData.authorizationToken;
 
-        // Step 4: Redirect the client to the direct download link with the authorization token
-        const authorizedDownloadUrl = `${downloadUrl}/file/${bucketName}/${fileName}?Authorization=${downloadAuthToken}`;
+        // Step 5: Redirect the client to direct download link
+        const authorizedDownloadUrl = `${downloadUrl}/file/${bucketName}/${encodeURIComponent(targetFileName)}?Authorization=${downloadAuthToken}`;
         
         res.writeHead(302, { 'Location': authorizedDownloadUrl });
         res.end();
@@ -216,8 +147,7 @@ const server = http.createServer((req, res) => {
                 <div class="w-12 h-12 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-full flex items-center justify-center mx-auto text-xl">⚠️</div>
                 <h1 class="text-lg font-bold text-white">B2 Download Failed</h1>
                 <p class="text-xs text-slate-400 leading-relaxed">${err.message}</p>
-                <p class="text-[10px] text-slate-500">Please verify your Key ID, Application Key, and Bucket Name in the dashboard settings.</p>
-                <a href="/" class="inline-block mt-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-xl transition-all">Go Back to Dashboard</a>
+                <a href="/" class="inline-block mt-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-xl transition-all">Go Back Home</a>
               </div>
             </body>
           </html>
@@ -227,7 +157,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Backblaze upload API
+  // Backblaze upload API (uploads APK as "jebena pay v1.0.0.apk")
   if (req.method === 'POST' && req.url === '/api/backblaze-upload') {
     let body = '';
     req.on('data', chunk => {
@@ -240,6 +170,8 @@ const server = http.createServer((req, res) => {
         const applicationKey = data.applicationKey || '0050538f19f6604d5c849f8562d20e12d2923de30a';
         let bucketId = data.bucketId;
         let bucketName = data.bucketName;
+        const uploadVersion = data.version || APP_VERSION;
+        const targetUploadFileName = `jebena pay v${uploadVersion}.apk`;
 
         if (!keyId || !applicationKey) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -283,7 +215,6 @@ const server = http.createServer((req, res) => {
         } else if (bucketId) {
           foundBucket = buckets.find(b => b.bucketId === bucketId);
         } else {
-          // Default to the first bucket if none specified
           foundBucket = buckets[0];
         }
 
@@ -315,6 +246,9 @@ const server = http.createServer((req, res) => {
         // Step 4: Read APK file from build outputs or static folder
         let apkPath = path.resolve('.build-outputs/app-debug.apk');
         if (!fs.existsSync(apkPath)) {
+          apkPath = path.resolve('app/build/outputs/apk/debug/app-debug.apk');
+        }
+        if (!fs.existsSync(apkPath)) {
           apkPath = path.join(PUBLIC_DIR, 'jebena-pay.apk');
         }
         
@@ -326,13 +260,12 @@ const server = http.createServer((req, res) => {
         // Step 5: Calculate SHA-1
         const sha1 = crypto.createHash('sha1').update(fileBuffer).digest('hex');
 
-        // Step 6: Upload File
-        const fileName = 'jebena-pay.apk';
+        // Step 6: Upload File with Versioned Name ("jebena pay v1.0.0.apk")
         const uploadRes = await fetch(uploadUrl, {
           method: 'POST',
           headers: {
             'Authorization': uploadAuthToken,
-            'X-Bz-File-Name': encodeURIComponent(fileName),
+            'X-Bz-File-Name': encodeURIComponent(targetUploadFileName),
             'Content-Type': 'application/vnd.android.package-archive',
             'Content-Length': fileBuffer.length.toString(),
             'X-Bz-Content-Sha1': sha1
@@ -346,7 +279,7 @@ const server = http.createServer((req, res) => {
         }
 
         const uploadData = await uploadRes.json();
-        const downloadLink = `${downloadUrl}/file/${bucketName}/${fileName}`;
+        const downloadLink = `${downloadUrl}/file/${bucketName}/${encodeURIComponent(targetUploadFileName)}`;
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({

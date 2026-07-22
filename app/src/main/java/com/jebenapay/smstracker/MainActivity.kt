@@ -39,22 +39,21 @@ class MainActivity : ComponentActivity() {
     private val liveSmsReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == "com.jebenapay.ACTION_NEW_TRANSACTION") {
-                // UI automatically re-collects state flows, but receiver guarantees wakeup
                 val sender = intent.getStringExtra("sender") ?: "SMS"
                 val amount = intent.getDoubleExtra("amount", 0.0)
                 val typeStr = intent.getStringExtra("type") ?: "CREDIT"
                 val ref = intent.getStringExtra("reference") ?: ""
+                val party = intent.getStringExtra("party") ?: sender
                 
                 val tx = Transaction(
                     sender = sender,
                     amount = amount,
-                    type = TransactionType.valueOf(typeStr),
+                    type = try { TransactionType.valueOf(typeStr) } catch (e: Exception) { TransactionType.CREDIT },
                     reference = ref,
-                    merchantOrParty = sender,
+                    merchantOrParty = party,
                     rawSms = "Live SMS Captured"
                 )
-                // Trigger live banner in viewmodel
-                viewModel.dismissLiveBanner()
+                viewModel.onTransactionCapturedLocally(tx)
             }
         }
     }
