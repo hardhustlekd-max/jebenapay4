@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.0.2",
+    "releaseDate": "2026-07-22",
+    "title": "v1.0.2 — Live Reactive State Sync, Status Bar & Version Display",
+    "apkName": "jebena pay v1.0.2.apk",
+    "commitHash": "head",
+    "status": "Production",
+    "changes": [
+      "Removed full screen mode and restored native system status bar visibility with matching dark theme color",
+      "Added exact version and build number display (v1.0.2 Build 2) at the bottom of the Android application",
+      "Bound Room flow directly to ViewModel StateFlow via stateIn for instant real-time UI updates without restarting the app",
+      "Fixed SmsObserver cursor tracking with ID thresholding to catch all incoming SMS instantly while app is foregrounded"
+    ]
+  },
+  {
     "version": "1.0.1",
     "releaseDate": "2026-07-22",
     "title": "v1.0.1 — Instant SMS Capture Fix & Runtime Permissions",

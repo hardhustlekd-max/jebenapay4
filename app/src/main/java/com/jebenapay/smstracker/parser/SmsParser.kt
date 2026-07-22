@@ -12,9 +12,9 @@ object SmsParser {
 
         // Determine transaction type
         val type = when {
-            lowerBody.contains("credited") || lowerBody.contains("received") || lowerBody.contains("deposited") || lowerBody.contains("cash-in") -> TransactionType.CREDIT
-            lowerBody.contains("debited") || lowerBody.contains("paid") || lowerBody.contains("transferred") || lowerBody.contains("sent") || lowerBody.contains("withdrawn") -> TransactionType.DEBIT
-            else -> TransactionType.UNKNOWN
+            lowerBody.contains("credited") || lowerBody.contains("received") || lowerBody.contains("deposited") || lowerBody.contains("cash-in") || lowerBody.contains("transferred to your") || lowerBody.contains("added") -> TransactionType.CREDIT
+            lowerBody.contains("debited") || lowerBody.contains("paid") || lowerBody.contains("transferred") || lowerBody.contains("sent") || lowerBody.contains("withdrawn") || lowerBody.contains("purchased") -> TransactionType.DEBIT
+            else -> TransactionType.CREDIT
         }
 
         // Extract Amount (e.g., ETB 500.00, 1,250.00 ETB, Birr 250, USD 45)

@@ -81,12 +81,21 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Remove full screen mode & show status bar
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, true)
+        window.statusBarColor = android.graphics.Color.parseColor("#0A0A0C")
+        window.navigationBarColor = android.graphics.Color.parseColor("#0A0A0C")
+
         checkAndRequestSmsPermissions()
 
         setContent {
             JebenaPayTheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .navigationBarsPadding(),
                     color = Color(0xFF0A0A0C)
                 ) {
                     MainDashboardScreen(
@@ -393,6 +402,35 @@ fun MainDashboardScreen(
                     TransactionRow(tx)
                 }
             }
+        }
+
+        // Exact App Version & Build Number Display at Bottom
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val packageInfo = remember {
+            try {
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            } catch (e: Exception) { null }
+        }
+        val versionName = packageInfo?.versionName ?: "1.0.1"
+        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            packageInfo?.longVersionCode ?: 2L
+        } else {
+            @Suppress("DEPRECATION")
+            packageInfo?.versionCode?.toLong() ?: 2L
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 10.dp, bottom = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Jebena Pay v$versionName (Build $versionCode) • Live Sync Active",
+                fontSize = 11.sp,
+                color = Color(0xFF64748B),
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
