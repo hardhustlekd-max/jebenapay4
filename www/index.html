@@ -34,9 +34,9 @@
       </div>
     </div>
     <div class="flex items-center gap-2">
-      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+      <span id="header-version-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-        v1.0.0 Stable Build
+        v1.0.1 Stable Build
       </span>
     </div>
   </header>
@@ -59,12 +59,12 @@
       
       <div class="space-y-4">
         <!-- Main Download Link pointing to Backblaze B2 Uploaded APK -->
-        <a id="download-btn" href="/api/download-apk?keyId=affc1d33accc&applicationKey=0050538f19f6604d5c849f8562d20e12d2923de30a&bucketName=jebenapay-build" class="block w-full py-4 bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-black font-extrabold rounded-xl transition-all shadow-lg shadow-emerald-500/15 text-center text-base tracking-wide flex items-center justify-center gap-2">
+        <a id="download-btn" href="/api/download-apk?keyId=affc1d33accc&applicationKey=0050538f19f6604d5c849f8562d20e12d2923de30a&bucketName=jebenapay-build&fileName=jebena%20pay%20v1.0.1.apk" class="block w-full py-4 bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-black font-extrabold rounded-xl transition-all shadow-lg shadow-emerald-500/15 text-center text-base tracking-wide flex items-center justify-center gap-2">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m-3-3l3 3 3-3"></path>
           </svg>
-          Download APK from Backblaze B2
+          <span id="download-btn-text">Download Jebena Pay v1.0.1 APK</span>
         </a>
         
         <p class="text-[11px] text-slate-500 leading-relaxed max-w-sm mx-auto">
@@ -472,6 +472,24 @@
         // Update badges
         const badge = document.getElementById('vc-active-version-badge');
         if (badge) badge.innerText = `v${data.currentVersion}`;
+
+        const headerBadge = document.getElementById('header-version-badge');
+        if (headerBadge) {
+          headerBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> v${data.currentVersion} Stable Build`;
+        }
+
+        const downloadBtn = document.getElementById('download-btn');
+        const downloadBtnText = document.getElementById('download-btn-text');
+        if (downloadBtn) {
+          const keyId = localStorage.getItem('b2_key_id') || 'affc1d33accc';
+          const appKey = localStorage.getItem('b2_app_key') || '0050538f19f6604d5c849f8562d20e12d2923de30a';
+          const bucket = localStorage.getItem('b2_bucket_name') || 'jebenapay-build';
+          const latestFileName = `jebena pay v${data.currentVersion}.apk`;
+          downloadBtn.href = `/api/download-apk?keyId=${encodeURIComponent(keyId)}&applicationKey=${encodeURIComponent(appKey)}&bucketName=${encodeURIComponent(bucket)}&fileName=${encodeURIComponent(latestFileName)}`;
+          if (downloadBtnText) {
+            downloadBtnText.innerText = `Download Jebena Pay v${data.currentVersion} APK`;
+          }
+        }
 
         const headCommit = document.getElementById('vc-head-commit');
         if (headCommit && data.gitHistory && data.gitHistory.length > 0) {

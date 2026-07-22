@@ -147,7 +147,8 @@ const server = http.createServer((req, res) => {
     const keyId = urlObj.searchParams.get('keyId') || 'affc1d33accc';
     const applicationKey = urlObj.searchParams.get('applicationKey') || '0050538f19f6604d5c849f8562d20e12d2923de30a';
     const bucketNameParam = urlObj.searchParams.get('bucketName') || 'jebenapay-build';
-    let targetFileName = urlObj.searchParams.get('fileName') || APK_DISPLAY_NAME;
+    const reqFileName = urlObj.searchParams.get('fileName');
+    let targetFileName = reqFileName || APK_DISPLAY_NAME;
 
     (async () => {
       try {
@@ -190,21 +191,23 @@ const server = http.createServer((req, res) => {
         const bucketName = foundBucket.bucketName;
 
         // Step 3: Check for exact file or find latest jebena pay apk file in bucket
-        try {
-          const fileListRes = await fetch(`${apiUrl}/b2api/v2/b2_list_file_names`, {
-            method: 'POST',
-            headers: { 'Authorization': accountAuthToken, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bucketId, maxFileCount: 10, prefix: 'jebena' })
-          });
-          if (fileListRes.ok) {
-            const fileListData = await fileListRes.json();
-            if (fileListData.files && fileListData.files.length > 0) {
-              // Pick the latest file
-              targetFileName = fileListData.files[0].fileName;
+        if (!reqFileName) {
+          try {
+            const fileListRes = await fetch(`${apiUrl}/b2api/v2/b2_list_file_names`, {
+              method: 'POST',
+              headers: { 'Authorization': accountAuthToken, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ bucketId, maxFileCount: 20, prefix: 'jebena' })
+            });
+            if (fileListRes.ok) {
+              const fileListData = await fileListRes.json();
+              if (fileListData.files && fileListData.files.length > 0) {
+                // Pick the latest file
+                targetFileName = fileListData.files[0].fileName;
+              }
             }
+          } catch (e) {
+            // fallback to targetFileName
           }
-        } catch (e) {
-          // fallback to targetFileName
         }
 
         // Step 4: Call b2_get_download_authorization
