@@ -4,7 +4,7 @@
     "releaseDate": "2026-07-22",
     "title": "v1.0.3 — Device Received Timestamp Observer Filter",
     "apkName": "jebena pay v1.0.3.apk",
-    "commitHash": "head",
+    "commitHash": "d2d9676",
     "status": "Production",
     "changes": [
       "Updated SmsObserver to focus purely on the device SMS received timestamp (date column) instead of transaction ID (_id)",
