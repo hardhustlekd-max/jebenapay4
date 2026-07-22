@@ -1,0 +1,21 @@
+# Android/Gradle build files
+.gradle/
+build/
+.build-outputs/
+*.apk
+
+# Keystores & sensitive keys
+*.keystore
+*.keystore.base64
+.env
+
+# Node.js dependencies & cache
+node_modules/
+.npm
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# OS files
+.DS_Store
+Thumbs.db

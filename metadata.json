@@ -1,0 +1,6 @@
+{
+  "name": "Jebena pay",
+  "description": "An Android application that tracks incoming SMS messages from configured senders, parses transaction amounts and details, and displays them in a gorgeous local dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
