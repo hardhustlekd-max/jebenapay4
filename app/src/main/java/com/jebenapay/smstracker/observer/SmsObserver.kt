@@ -19,58 +19,59 @@ class SmsObserver(
     private val onCaptured: (transaction: Transaction) -> Unit
 ) : ContentObserver(handler) {
 
-    private var lastHandledSmsId: Long = -1
+    private var lastHandledSmsTime: Long = System.currentTimeMillis()
 
     init {
-        // Find existing highest SMS _id in inbox so we only observe future incoming SMS
+        // Find existing highest SMS received date in inbox so we only observe future incoming SMS based on device time
         try {
             val cursor = context.contentResolver.query(
                 Telephony.Sms.CONTENT_URI,
-                arrayOf("_id"),
+                arrayOf("date"),
                 "type = ?",
-                arrayOf("1"),
-                "_id DESC LIMIT 1"
+                arrayOf("1"), // 1 = Inbox
+                "date DESC LIMIT 1"
             )
             cursor?.use { c ->
                 if (c.moveToFirst()) {
-                    lastHandledSmsId = c.getLong(c.getColumnIndexOrThrow("_id"))
-                    Log.d("SmsObserver", "Initialized lastHandledSmsId = $lastHandledSmsId")
+                    val latestDate = c.getLong(c.getColumnIndexOrThrow("date"))
+                    if (latestDate > 0) {
+                        lastHandledSmsTime = latestDate
+                    }
+                    Log.d("SmsObserver", "Initialized lastHandledSmsTime = $lastHandledSmsTime")
                 }
             }
         } catch (e: Exception) {
-            Log.e("SmsObserver", "Error initializing SmsObserver highest ID", e)
+            Log.e("SmsObserver", "Error initializing SmsObserver highest received time", e)
         }
     }
 
     override fun onChange(selfChange: Boolean, uri: Uri?) {
         super.onChange(selfChange, uri)
         try {
-            val selection = if (lastHandledSmsId > 0) "type = ? AND _id > ?" else "type = ?"
-            val selectionArgs = if (lastHandledSmsId > 0) arrayOf("1", lastHandledSmsId.toString()) else arrayOf("1")
+            val selection = "type = ? AND date > ?"
+            val selectionArgs = arrayOf("1", lastHandledSmsTime.toString())
 
             val cursor = context.contentResolver.query(
                 Telephony.Sms.CONTENT_URI,
                 arrayOf("_id", "address", "body", "date", "type"),
                 selection,
                 selectionArgs,
-                "_id ASC"
+                "date ASC"
             )
 
             cursor?.use { c ->
-                val idCol = c.getColumnIndexOrThrow("_id")
                 val addressCol = c.getColumnIndexOrThrow("address")
                 val bodyCol = c.getColumnIndexOrThrow("body")
                 val dateCol = c.getColumnIndexOrThrow("date")
 
                 while (c.moveToNext()) {
-                    val id = c.getLong(idCol)
+                    val smsDate = c.getLong(dateCol) // Time the SMS was received on the device
                     val address = c.getString(addressCol) ?: "SMS"
                     val body = c.getString(bodyCol) ?: ""
-                    val smsDate = c.getLong(dateCol) // Time the SMS was received on the device
 
-                    if (id > lastHandledSmsId) {
-                        lastHandledSmsId = id
-                        Log.d("SmsObserver", "Captured live SMS (ID $id, date $smsDate) from $address: $body")
+                    if (smsDate > lastHandledSmsTime) {
+                        lastHandledSmsTime = smsDate
+                        Log.d("SmsObserver", "Captured live SMS received at $smsDate from $address: $body")
 
                         val transaction = SmsParser.parseSms(address, body, timestamp = smsDate)
                         if (transaction != null) {
