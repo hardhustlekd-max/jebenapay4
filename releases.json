@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.0.1",
+    "releaseDate": "2026-07-22",
+    "title": "v1.0.1 — Instant SMS Capture Fix & Runtime Permissions",
+    "apkName": "jebena pay v1.0.1.apk",
+    "commitHash": "head",
+    "status": "Production",
+    "changes": [
+      "Added runtime RECEIVE_SMS and READ_SMS permission prompt and status indicator",
+      "Integrated dual-engine real-time SMS capture using ContentObserver on Telephony.Sms.CONTENT_URI",
+      "Added transaction deduplication in Room database by reference ID and timestamp matching",
+      "Instant Compose state flow reactive updates without restarting the application"
+    ]
+  },
+  {
     "version": "1.0.0",
     "releaseDate": "2026-07-22",
     "title": "v1.0.0 — Official Production Release",

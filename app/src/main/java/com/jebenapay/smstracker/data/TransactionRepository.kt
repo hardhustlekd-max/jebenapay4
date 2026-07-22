@@ -26,6 +26,15 @@ class TransactionRepository private constructor(context: Context) {
     }
 
     suspend fun addTransaction(transaction: Transaction): Long {
+        // Deduplication check
+        if (transaction.reference != "N/A" && transaction.reference.isNotBlank()) {
+            val existing = dao.findExistingByRef(transaction.reference)
+            if (existing != null) return existing.id
+        } else {
+            val existing = dao.findExistingByMatch(transaction.sender, transaction.amount, transaction.timestamp - 10000)
+            if (existing != null) return existing.id
+        }
+
         val id = dao.insertTransaction(transaction)
         val created = transaction.copy(id = id)
         // Instantly publish to foreground UI event stream

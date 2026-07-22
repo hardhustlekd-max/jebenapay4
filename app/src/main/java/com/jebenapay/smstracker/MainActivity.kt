@@ -1,13 +1,19 @@
 package com.jebenapay.smstracker
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.provider.Telephony
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -25,8 +31,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.jebenapay.smstracker.data.Transaction
 import com.jebenapay.smstracker.data.TransactionType
+import com.jebenapay.smstracker.observer.SmsObserver
 import com.jebenapay.smstracker.viewmodel.TransactionViewModel
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -35,6 +43,18 @@ import java.util.*
 class MainActivity : ComponentActivity() {
 
     private val viewModel: TransactionViewModel by viewModels()
+
+    private var smsObserver: SmsObserver? = null
+    private val hasSmsPermissionsState = mutableStateOf(false)
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        checkPermissionState()
+        if (hasSmsPermissionsState.value) {
+            registerSmsObserver()
+        }
+    }
 
     private val liveSmsReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -61,36 +81,102 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        checkAndRequestSmsPermissions()
+
         setContent {
             JebenaPayTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = Color(0xFF0A0A0C)
                 ) {
-                    MainDashboardScreen(viewModel)
+                    MainDashboardScreen(
+                        viewModel = viewModel,
+                        hasPermissions = hasSmsPermissionsState.value,
+                        onRequestPermissions = { checkAndRequestSmsPermissions(forcePrompt = true) }
+                    )
                 }
             }
         }
     }
 
+    private fun checkPermissionState() {
+        val receiveGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
+        val readGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+        hasSmsPermissionsState.value = receiveGranted || readGranted
+    }
+
+    private fun checkAndRequestSmsPermissions(forcePrompt: Boolean = false) {
+        checkPermissionState()
+        if (!hasSmsPermissionsState.value || forcePrompt) {
+            val perms = mutableListOf(
+                Manifest.permission.RECEIVE_SMS,
+                Manifest.permission.READ_SMS
+            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                perms.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            permissionLauncher.launch(perms.toTypedArray())
+        } else {
+            registerSmsObserver()
+        }
+    }
+
+    private fun registerSmsObserver() {
+        if (smsObserver == null) {
+            smsObserver = SmsObserver(this, Handler(Looper.getMainLooper())) { tx ->
+                viewModel.onTransactionCapturedLocally(tx)
+            }
+            try {
+                contentResolver.registerContentObserver(
+                    Telephony.Sms.CONTENT_URI,
+                    true,
+                    smsObserver!!
+                )
+            } catch (e: Exception) {
+                // Permission not granted yet
+            }
+        }
+    }
+
+    private fun unregisterSmsObserver() {
+        smsObserver?.let {
+            try {
+                contentResolver.unregisterContentObserver(it)
+            } catch (e: Exception) {
+                // Ignore
+            }
+            smsObserver = null
+        }
+    }
+
     override fun onStart() {
         super.onStart()
+        checkPermissionState()
         val filter = IntentFilter("com.jebenapay.ACTION_NEW_TRANSACTION")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(liveSmsReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             registerReceiver(liveSmsReceiver, filter)
         }
+        registerSmsObserver()
         viewModel.refreshTransactions()
     }
 
     override fun onResume() {
         super.onResume()
+        checkPermissionState()
+        registerSmsObserver()
         viewModel.refreshTransactions()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        unregisterSmsObserver()
     }
 
     override fun onStop() {
         super.onStop()
+        unregisterSmsObserver()
         try {
             unregisterReceiver(liveSmsReceiver)
         } catch (e: Exception) {
@@ -112,7 +198,11 @@ fun JebenaPayTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun MainDashboardScreen(viewModel: TransactionViewModel) {
+fun MainDashboardScreen(
+    viewModel: TransactionViewModel,
+    hasPermissions: Boolean = true,
+    onRequestPermissions: () -> Unit = {}
+) {
     val transactions by viewModel.transactions.collectAsState()
     val netBalance by viewModel.netBalance.collectAsState()
     val totalIncome by viewModel.totalIncome.collectAsState()
@@ -153,10 +243,44 @@ fun MainDashboardScreen(viewModel: TransactionViewModel) {
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                    .background(if (hasPermissions) Color(0xFF10B981).copy(alpha = 0.15f) else Color(0xFFEF4444).copy(alpha = 0.15f))
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
-                Text("LIVE SYNC ON", fontSize = 10.sp, color = Color(0xFF10B981), fontWeight = FontWeight.Bold)
+                Text(
+                    text = if (hasPermissions) "LIVE SYNC ON" else "PERMISSIONS NEEDED",
+                    fontSize = 10.sp,
+                    color = if (hasPermissions) Color(0xFF10B981) else Color(0xFFEF4444),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        if (!hasPermissions) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF7F1D1D)),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("⚠️ SMS RECEIVER PERMISSION REQUIRED", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.White)
+                        Text("Grant RECEIVE_SMS & READ_SMS for instant real-time capture.", fontSize = 10.sp, color = Color(0xFFFCA5A5))
+                    }
+                    Button(
+                        onClick = onRequestPermissions,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text("Grant Now", color = Color(0xFF7F1D1D), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
+                }
             }
         }
 
