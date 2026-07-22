@@ -21,6 +21,10 @@ class TransactionRepository private constructor(context: Context) {
         return dao.getAllTransactionsFlow()
     }
 
+    suspend fun getAllTransactionsList(): List<Transaction> {
+        return dao.getAllTransactionsList()
+    }
+
     suspend fun addTransaction(transaction: Transaction): Long {
         val id = dao.insertTransaction(transaction)
         val created = transaction.copy(id = id)

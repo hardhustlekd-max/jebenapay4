@@ -17,22 +17,18 @@ import kotlinx.coroutines.launch
 class TransactionViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = TransactionRepository.getInstance(application)
 
-    val transactions: StateFlow<List<Transaction>> = repository.getAllTransactions()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = emptyList()
-        )
+    private val _transactions = MutableStateFlow<List<Transaction>>(emptyList())
+    val transactions: StateFlow<List<Transaction>> = _transactions.asStateFlow()
 
-    val totalIncome: StateFlow<Double> = transactions.map { list ->
+    val totalIncome: StateFlow<Double> = _transactions.map { list ->
         list.filter { it.type == TransactionType.CREDIT }.sumOf { it.amount }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
 
-    val totalExpense: StateFlow<Double> = transactions.map { list ->
+    val totalExpense: StateFlow<Double> = _transactions.map { list ->
         list.filter { it.type == TransactionType.DEBIT }.sumOf { it.amount }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
 
-    val netBalance: StateFlow<Double> = transactions.map { list ->
+    val netBalance: StateFlow<Double> = _transactions.map { list ->
         val income = list.filter { it.type == TransactionType.CREDIT }.sumOf { it.amount }
         val expense = list.filter { it.type == TransactionType.DEBIT }.sumOf { it.amount }
         income - expense
@@ -42,16 +38,32 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
     val latestCapturedTransaction: StateFlow<Transaction?> = _latestCapturedTransaction.asStateFlow()
 
     init {
-        // Collect live event stream to pop a dynamic banner when captured
+        // Collect Room Database Flow
+        viewModelScope.launch {
+            repository.getAllTransactions().collect { list ->
+                _transactions.value = list
+            }
+        }
+
+        // Collect live event stream to pop a dynamic banner and force immediate UI list update
         viewModelScope.launch {
             repository.liveTransactionEvent.collect { newTx ->
                 _latestCapturedTransaction.value = newTx
+                refreshTransactions()
             }
+        }
+    }
+
+    fun refreshTransactions() {
+        viewModelScope.launch {
+            val list = repository.getAllTransactionsList()
+            _transactions.value = list
         }
     }
 
     fun onTransactionCapturedLocally(transaction: Transaction) {
         _latestCapturedTransaction.value = transaction
+        refreshTransactions()
     }
 
     fun dismissLiveBanner() {

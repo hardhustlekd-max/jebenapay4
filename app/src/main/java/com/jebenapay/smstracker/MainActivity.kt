@@ -77,10 +77,16 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         val filter = IntentFilter("com.jebenapay.ACTION_NEW_TRANSACTION")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(liveSmsReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            registerReceiver(liveSmsReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             registerReceiver(liveSmsReceiver, filter)
         }
+        viewModel.refreshTransactions()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshTransactions()
     }
 
     override fun onStop() {

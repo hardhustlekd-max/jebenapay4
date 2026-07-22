@@ -20,6 +20,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "jebena_pay_database"
                 )
+                .enableMultiInstanceInvalidation()
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
